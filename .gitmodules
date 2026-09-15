@@ -1,0 +1,3 @@
+[submodule "lib/AMON"]
+	path = lib/AMON
+	url = https://github.com/josephinegobert/AMON.git

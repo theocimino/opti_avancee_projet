@@ -1,0 +1,4 @@
+# Tous les caches Python, y compris dans les sous-dossiers
+__pycache__/
+*.py[cod]
+*.pyc
