@@ -130,10 +130,7 @@ $$
 On **minimise** la somme de trois termes déjà ramenés entre 0 et 1 :
 
 $$
-f(x)
-= \frac{E_{\max} - \mathrm{EAP}(x)}{E_{\max}}
-+ \frac{s(x)}{s_{\max}}
-+ \frac{p(x)}{p_{\max}}.
+f(x) = \frac{E_{\max} - \mathrm{EAP}(x)}{E_{\max}} + \frac{s(x)}{s_{\max}} + \frac{p(x)}{p_{\max}}.
 $$
 
 Donc f vaut entre 0 et 3. Diviser par 3 donnerait une fonction entre 0 et 1, avec **le même minimiseur** ; le code garde la somme.
