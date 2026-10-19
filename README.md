@@ -93,6 +93,98 @@ from solvers import mc_solver
 best = mc_solver("bb_example/param.txt", "bb_example/x0_instance.txt", n=10)
 ```
 
+## Méthode naïve (`naive_solver`)
+
+`N` est fixé par `DIMENSION` dans le fichier paramètre : on optimise seulement les positions. Le vecteur de décision est
+
+$$
+x = (x_1, y_1, \ldots, x_N, y_N) \in \mathbb{R}^{2N}.
+$$
+
+Trois objets géométriques, à ne pas confondre :
+
+- **boundary zone** : le polygone du terrain, lu dans `BOUNDARY_FILE`.
+- **buildable zone** : ce polygone, moins les zones d'exclusion. C'est là que les turbines ont le droit d'être. La contrainte de placement mesure la distance à cette zone.
+- **bbox** : le plus petit rectangle aligné aux axes qui contient la boundary zone. AMON le lit dans le shapefile (`Boundaries.bbox`) et en fait les bornes `lb` et `ub`, soit [x_min, x_max] pour les abscisses et [y_min, y_max] pour les ordonnées. La projection et le plafond de placement utilisent ce rectangle, pas le polygone.
+
+La blackbox renvoie trois nombres :
+
+- l'énergie annuelle, en GWh (à maximiser)
+
+$$
+EAP(x)
+$$
+
+- la contrainte d'espacement, en mètres, nulle si les turbines sont à au moins deux diamètres l'une de l'autre
+
+$$
+s(x) = 0
+$$
+
+- la contrainte de placement, en mètres, nulle si toutes les turbines sont dans la buildable zone
+
+$$
+p(x) = 0
+$$
+
+On **minimise** la somme de trois termes déjà ramenés entre 0 et 1 :
+
+$$
+f(x)
+= \frac{E_{\max} - \mathrm{EAP}(x)}{E_{\max}}
++ \frac{s(x)}{s_{\max}}
++ \frac{p(x)}{p_{\max}}.
+$$
+
+Donc f vaut entre 0 et 3. Diviser par 3 donnerait une fonction entre 0 et 1, avec **le même minimiseur** ; le code garde la somme.
+
+Les trois plafonds :
+
+$$
+E_{\max} = N \cdot \mathrm{EAP}_1,
+\qquad
+s_{\max} = N(N-1)\, D,
+\qquad
+p_{\max} = N \sqrt{(x_{\max}-x_{\min})^2 + (y_{\max}-y_{\min})^2}.
+$$
+
+- Le premier plafond est l'énergie d'**une** turbine isolée (un appel blackbox au centre de la bbox), multipliée par N. Les sillages ne font que diminuer l'EAP.
+- Le deuxième est le cas où toutes les turbines sont au même point : N(N−1)/2 paires, et chaque paire contribue un déficit de 2D.
+- Le troisième utilise la diagonale de la bbox : dans ce rectangle, une turbine ne peut pas être plus loin que ça de la buildable zone.
+
+Le gradient n'est pas fourni par la blackbox. On le calcule par **différences finies avant**. Le décalage vaut un diamètre ; s'il sort de la bbox, on prend l'opposé.
+
+$$
+g_i = \frac{f(x + \delta e_i) - f(x)}{\delta}.
+$$
+
+Puis on fait un pas de descente de gradient. Le vecteur g monte f, donc on suit −g. Le pas α est un nombre positif (dans le code, le déplacement fait un diamètre) :
+
+$$
+x \leftarrow x - \alpha g.
+$$
+
+Si ce nouveau point sort de la bbox, on le ramène sur le bord. C'est la projection Π : chaque abscisse est recollée dans [x_min, x_max], chaque ordonnée dans [y_min, y_max]. Une coordonnée trop petite prend la borne min, une coordonnée trop grande prend la borne max. Un point déjà dans la bbox ne bouge pas. Π ne connaît pas la buildable zone : une turbine peut être dans la bbox et quand même hors du polygone, et c'est alors p(x) qui le voit.
+
+$$
+x \leftarrow \Pi(x - \alpha g).
+$$
+
+On répète ça `n_steps` fois et on garde le point visité (y compris les décalages) qui a le plus petit f. La fonction renvoie l'EAP de ce point.
+
+Nombre d'évaluations :
+
+$$
+2 + n_{\text{steps}}(2N + 1).
+$$
+
+Pour N = 30 et un seul pas, cela fait 63 appels, soit de l'ordre de 10 minutes.
+
+```python
+from solvers import naive_solver
+eap = naive_solver("bb_example/param.txt", "bb_example/x0_instance.txt", n_steps=1)
+```
+
 ## Créer un .txt de paramétrisation des éoliennes
 
 todo
